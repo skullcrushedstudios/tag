@@ -173,9 +173,39 @@
             
             <!-- Online Mode Form -->
             <div id="onlineForm" class="join-form" style="display: none;">
-                <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
-                <input type="text" id="roomId" placeholder="Room ID (e.g., room1)" maxlength="20">
-                <button id="joinRoomBtn">Join Room</button>
+                <div class="server-options">
+                    <div class="server-option" id="privateServerOption">
+                        <input type="radio" id="privateServer" name="serverType" value="private" checked>
+                        <label for="privateServer">
+                            <span class="server-icon">🏠</span>
+                            <span class="server-title">Private Room</span>
+                            <span class="server-desc">Create or join a specific room</span>
+                        </label>
+                    </div>
+                    <div class="server-option" id="groupServerOption">
+                        <input type="radio" id="groupServer" name="serverType" value="group">
+                        <label for="groupServer">
+                            <span class="server-icon">🌐</span>
+                            <span class="server-title">Group Server</span>
+                            <span class="server-desc">Join the main community server</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="privateRoomInputs">
+                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+                    <input type="text" id="roomId" placeholder="Room ID (e.g., room1)" maxlength="20">
+                </div>
+                
+                <div id="groupServerInputs" style="display: none;">
+                    <input type="text" id="groupPlayerName" placeholder="Enter your name" maxlength="20">
+                    <div class="group-server-info">
+                        <p>🎮 Join the main Tag Game community!</p>
+                        <p>Play with players from around the world</p>
+                    </div>
+                </div>
+                
+                <button id="joinRoomBtn">Join Game</button>
                 <button id="backToModeBtn" class="secondary-btn">← Back</button>
             </div>
             
@@ -262,7 +292,71 @@
                 <p><strong>Waiting for players...</strong> Need 2 players to start the game.</p>
             </div>
         </div>
+        
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="admin-panel" style="display: none;">
+            <div class="admin-panel-header">
+                <h3>🛡️ Admin Panel</h3>
+                <button id="closeAdminPanel" class="close-btn">×</button>
+            </div>
+            <div class="admin-panel-content">
+                <div class="admin-section">
+                    <h4>Player Management</h4>
+                    <div class="admin-controls">
+                        <input type="text" id="banPlayerInput" placeholder="Enter player name to ban">
+                        <button id="banPlayerBtn" class="admin-btn danger">Ban Player</button>
+                    </div>
+                    <div class="admin-controls">
+                        <button id="viewPlayersBtn" class="admin-btn">View All Players</button>
+                        <button id="kickAllBtn" class="admin-btn danger">Kick All Players</button>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h4>Debug Tools</h4>
+                    <div class="admin-controls">
+                        <button id="debugModeBtn" class="admin-btn">Toggle Debug Mode</button>
+                        <button id="showStatsBtn" class="admin-btn">Show Game Stats</button>
+                    </div>
+                    <div class="admin-controls">
+                        <button id="resetGameBtn" class="admin-btn danger">Reset Current Game</button>
+                        <button id="serverInfoBtn" class="admin-btn">Server Info</button>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h4>Site-Wide Messaging</h4>
+                    <div class="admin-controls">
+                        <input type="text" id="broadcastInput" placeholder="Enter message to broadcast to all players...">
+                        <button id="broadcastBtn" class="admin-btn">Broadcast Message</button>
+                    </div>
+                    <div class="admin-controls">
+                        <select id="messageType" class="admin-select">
+                            <option value="info">Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Alert</option>
+                            <option value="success">Announcement</option>
+                        </select>
+                        <button id="sendMotdBtn" class="admin-btn">Set Message of the Day</button>
+                    </div>
+                </div>
+                
+                <div class="admin-section">
+                    <h4>Console</h4>
+                    <div id="adminConsole" class="admin-console"></div>
+                    <div class="admin-controls">
+                        <input type="text" id="consoleInput" placeholder="Enter command...">
+                        <button id="executeBtn" class="admin-btn">Execute</button>
+                        <button id="clearConsoleBtn" class="admin-btn">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <!-- Particle System -->
+    <div id="particles"></div>
+    
     <script src="script.js"></script>
 </body>
 </html>

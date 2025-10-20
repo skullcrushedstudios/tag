@@ -478,6 +478,18 @@ class MultiplayerTagGame {
         this.socket.on('qteEnd', (data) => {
             this.endQTE(data);
         });
+        
+        // Site-wide messaging
+        this.socket.on('siteMessage', (data) => {
+            this.showSiteMessage(data.message, data.messageType, data.sender || 'Server');
+        });
+        
+        this.socket.on('motd', (data) => {
+            // Show MOTD when joining server
+            setTimeout(() => {
+                this.showSiteMessage(data.message, data.messageType, 'Message of the Day');
+            }, 2000); // Delay to let user see they joined
+        });
     }
     
     setupEventListeners() {
@@ -519,6 +531,32 @@ class MultiplayerTagGame {
         // Status button
         document.getElementById('statusBtn').addEventListener('click', () => this.handleStatusClick());
         
+        // Server option toggles
+        document.getElementById('privateServer').addEventListener('change', () => this.toggleServerInputs());
+        document.getElementById('groupServer').addEventListener('change', () => this.toggleServerInputs());
+        
+        // Admin panel
+        document.getElementById('closeAdminPanel').addEventListener('click', () => this.hideAdminPanel());
+        document.getElementById('banPlayerBtn').addEventListener('click', () => this.banPlayer());
+        document.getElementById('viewPlayersBtn').addEventListener('click', () => this.viewAllPlayers());
+        document.getElementById('kickAllBtn').addEventListener('click', () => this.kickAllPlayers());
+        document.getElementById('debugModeBtn').addEventListener('click', () => this.toggleDebugMode());
+        document.getElementById('showStatsBtn').addEventListener('click', () => this.showGameStats());
+        document.getElementById('resetGameBtn').addEventListener('click', () => this.resetCurrentGame());
+        document.getElementById('serverInfoBtn').addEventListener('click', () => this.showServerInfo());
+        document.getElementById('broadcastBtn').addEventListener('click', () => this.broadcastMessage());
+        document.getElementById('sendMotdBtn').addEventListener('click', () => this.setMessageOfDay());
+        document.getElementById('executeBtn').addEventListener('click', () => this.executeConsoleCommand());
+        document.getElementById('clearConsoleBtn').addEventListener('click', () => this.clearConsole());
+        
+        // Console and broadcast enter key support
+        document.getElementById('consoleInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.executeConsoleCommand();
+        });
+        document.getElementById('broadcastInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.broadcastMessage();
+        });
+        
         // Navigation buttons
         document.getElementById('backToMainBtn').addEventListener('click', () => this.showMainMenu());
         document.getElementById('backToMainBtn2').addEventListener('click', () => this.showMainMenu());
@@ -552,16 +590,49 @@ class MultiplayerTagGame {
         // Connection management
         this.shouldConnect = false;
         
+        // Admin panel
+        this.adminPanelOpen = false;
+        this.debugMode = false;
+        this.bannedPlayers = new Set();
+        
         this.init();
         this.startMovementLoop();
     }
     
-    joinRoom() {
-        const playerName = this.playerNameInput.value.trim();
-        const roomId = this.roomIdInput.value.trim();
+    toggleServerInputs() {
+        const privateInputs = document.getElementById('privateRoomInputs');
+        const groupInputs = document.getElementById('groupServerInputs');
+        const isGroupServer = document.getElementById('groupServer').checked;
         
-        if (!playerName || !roomId) {
-            alert('Please enter both your name and a room ID');
+        if (isGroupServer) {
+            privateInputs.style.display = 'none';
+            groupInputs.style.display = 'block';
+        } else {
+            privateInputs.style.display = 'block';
+            groupInputs.style.display = 'none';
+        }
+    }
+    
+    joinRoom() {
+        const isGroupServer = document.getElementById('groupServer').checked;
+        let playerName, roomId;
+        
+        if (isGroupServer) {
+            playerName = document.getElementById('groupPlayerName').value.trim();
+            roomId = 'GROUP_SERVER'; // Special identifier for group server
+        } else {
+            playerName = this.playerNameInput.value.trim();
+            roomId = this.roomIdInput.value.trim();
+        }
+        
+        // Validation
+        if (!playerName) {
+            alert('Please enter your name');
+            return;
+        }
+        
+        if (!isGroupServer && !roomId) {
+            alert('Please enter a room ID');
             return;
         }
         
@@ -574,20 +645,27 @@ class MultiplayerTagGame {
             // Wait for connection before joining
             const checkConnection = () => {
                 if (this.socket && this.socket.connected) {
-        // Use logged in username if not provided
-        const actualPlayerName = playerName || this.currentUser?.username || 'Anonymous';
-        this.socket.emit('joinRoom', { 
-            roomId, 
-            playerName: actualPlayerName,
-            userLevel: this.currentUser?.level || 'guest'
-        });
+                    // Use logged in username if not provided
+                    const actualPlayerName = playerName || this.currentUser?.username || 'Anonymous';
+                    this.socket.emit('joinRoom', { 
+                        roomId, 
+                        playerName: actualPlayerName,
+                        userLevel: this.currentUser?.level || 'guest',
+                        isGroupServer: isGroupServer
+                    });
                 } else {
                     setTimeout(checkConnection, 100);
                 }
             };
             setTimeout(checkConnection, 100);
         } else {
-            this.socket.emit('joinRoom', { roomId, playerName });
+            const actualPlayerName = playerName || this.currentUser?.username || 'Anonymous';
+            this.socket.emit('joinRoom', { 
+                roomId, 
+                playerName: actualPlayerName,
+                userLevel: this.currentUser?.level || 'guest',
+                isGroupServer: isGroupServer
+            });
         }
     }
     
@@ -818,6 +896,17 @@ class MultiplayerTagGame {
     }
     
     handleKeyDown(e) {
+        // Admin panel hotkey (Ctrl+D) - only for admin users
+        if (e.ctrlKey && e.key.toLowerCase() === 'd' && this.isLoggedIn && this.currentUser.level === 'admin') {
+            e.preventDefault();
+            if (this.adminPanelOpen) {
+                this.hideAdminPanel();
+            } else {
+                this.showAdminPanel();
+            }
+            return;
+        }
+        
         // Handle QTE input first
         if (this.qteActive && this.qteData) {
             const key = e.key.toUpperCase();
@@ -1588,6 +1677,373 @@ class MultiplayerTagGame {
                 resultsDiv.parentNode.removeChild(resultsDiv);
             }
         }, 2000);
+    }
+    
+    // Admin Panel Functions
+    showAdminPanel() {
+        if (!this.isLoggedIn || this.currentUser.level !== 'admin') {
+            this.logToConsole('Access denied: Admin privileges required', 'error');
+            return;
+        }
+        
+        this.adminPanelOpen = true;
+        document.getElementById('adminPanel').style.display = 'block';
+        this.logToConsole('Admin panel opened', 'info');
+    }
+    
+    hideAdminPanel() {
+        this.adminPanelOpen = false;
+        document.getElementById('adminPanel').style.display = 'none';
+    }
+    
+    banPlayer() {
+        const playerName = document.getElementById('banPlayerInput').value.trim();
+        if (!playerName) {
+            this.logToConsole('Please enter a player name to ban', 'error');
+            return;
+        }
+        
+        this.bannedPlayers.add(playerName.toLowerCase());
+        this.logToConsole(`Player "${playerName}" has been banned`, 'warning');
+        document.getElementById('banPlayerInput').value = '';
+        
+        // If connected to server, emit ban command
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('adminCommand', { type: 'ban', target: playerName });
+        }
+    }
+    
+    viewAllPlayers() {
+        this.logToConsole('=== CONNECTED PLAYERS ===', 'info');
+        
+        if (this.gameState && this.gameState.players) {
+            this.gameState.players.forEach((player, index) => {
+                const status = player.isIt ? '[IT]' : '';
+                const slowed = player.slowed ? '[SLOWED]' : '';
+                this.logToConsole(`${index + 1}. ${player.name} ${status} ${slowed}`, 'info');
+            });
+        } else {
+            this.logToConsole('No players currently connected', 'info');
+        }
+        
+        this.logToConsole(`Total banned players: ${this.bannedPlayers.size}`, 'warning');
+    }
+    
+    kickAllPlayers() {
+        if (confirm('Are you sure you want to kick all players? This will end the current game.')) {
+            this.logToConsole('Kicking all players...', 'warning');
+            
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('adminCommand', { type: 'kickAll' });
+            }
+            
+            // Reset local game state
+            if (this.isOfflineMode) {
+                this.leaveOfflineGame();
+            }
+        }
+    }
+    
+    toggleDebugMode() {
+        this.debugMode = !this.debugMode;
+        const status = this.debugMode ? 'enabled' : 'disabled';
+        this.logToConsole(`Debug mode ${status}`, 'info');
+        
+        // Add visual debug indicators
+        if (this.debugMode) {
+            document.body.classList.add('debug-mode');
+            this.showDebugInfo();
+        } else {
+            document.body.classList.remove('debug-mode');
+            this.hideDebugInfo();
+        }
+    }
+    
+    showGameStats() {
+        this.logToConsole('=== GAME STATISTICS ===', 'info');
+        
+        if (this.gameState) {
+            this.logToConsole(`Time remaining: ${this.gameState.timeLeft || 0} seconds`, 'info');
+            this.logToConsole(`Total tags: ${this.gameState.tagCount || 0}`, 'info');
+            this.logToConsole(`Game running: ${this.gameState.isRunning ? 'Yes' : 'No'}`, 'info');
+            this.logToConsole(`Players: ${this.gameState.players ? this.gameState.players.length : 0}`, 'info');
+        }
+        
+        this.logToConsole(`Local player ID: ${this.playerId || 'None'}`, 'info');
+        this.logToConsole(`Current room: ${this.currentRoom || 'None'}`, 'info');
+        this.logToConsole(`Connection status: ${this.socket && this.socket.connected ? 'Connected' : 'Disconnected'}`, 'info');
+        this.logToConsole(`QTE active: ${this.qteActive ? 'Yes' : 'No'}`, 'info');
+    }
+    
+    resetCurrentGame() {
+        if (confirm('Are you sure you want to reset the current game?')) {
+            this.logToConsole('Resetting game...', 'warning');
+            
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('adminCommand', { type: 'resetGame' });
+            }
+            
+            if (this.isOfflineMode && this.offlineGameState) {
+                this.startOfflineGame();
+            }
+        }
+    }
+    
+    showServerInfo() {
+        this.logToConsole('=== SERVER INFO ===', 'info');
+        this.logToConsole(`Browser: ${navigator.userAgent}`, 'info');
+        this.logToConsole(`Platform: ${navigator.platform}`, 'info');
+        this.logToConsole(`Online: ${navigator.onLine ? 'Yes' : 'No'}`, 'info');
+        this.logToConsole(`Socket connected: ${this.socket && this.socket.connected ? 'Yes' : 'No'}`, 'info');
+        
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('adminCommand', { type: 'serverInfo' });
+        }
+    }
+    
+    executeConsoleCommand() {
+        const input = document.getElementById('consoleInput');
+        const command = input.value.trim();
+        
+        if (!command) return;
+        
+        this.logToConsole(`> ${command}`, 'info');
+        input.value = '';
+        
+        // Parse and execute command
+        const parts = command.toLowerCase().split(' ');
+        const cmd = parts[0];
+        
+        switch (cmd) {
+            case 'help':
+                this.logToConsole('Available commands:', 'info');
+                this.logToConsole('help - Show this help', 'info');
+                this.logToConsole('clear - Clear console', 'info');
+                this.logToConsole('debug - Toggle debug mode', 'info');
+                this.logToConsole('players - List all players', 'info');
+                this.logToConsole('stats - Show game stats', 'info');
+                this.logToConsole('kick [player] - Kick specific player', 'info');
+                this.logToConsole('ban [player] - Ban specific player', 'info');
+                break;
+                
+            case 'clear':
+                this.clearConsole();
+                break;
+                
+            case 'debug':
+                this.toggleDebugMode();
+                break;
+                
+            case 'players':
+                this.viewAllPlayers();
+                break;
+                
+            case 'stats':
+                this.showGameStats();
+                break;
+                
+            case 'kick':
+                if (parts[1]) {
+                    this.logToConsole(`Kicking player: ${parts[1]}`, 'warning');
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('adminCommand', { type: 'kick', target: parts[1] });
+                    }
+                } else {
+                    this.logToConsole('Usage: kick [player_name]', 'error');
+                }
+                break;
+                
+            case 'ban':
+                if (parts[1]) {
+                    this.bannedPlayers.add(parts[1].toLowerCase());
+                    this.logToConsole(`Banned player: ${parts[1]}`, 'warning');
+                } else {
+                    this.logToConsole('Usage: ban [player_name]', 'error');
+                }
+                break;
+                
+            default:
+                this.logToConsole(`Unknown command: ${cmd}. Type 'help' for available commands.`, 'error');
+        }
+    }
+    
+    clearConsole() {
+        document.getElementById('adminConsole').innerHTML = '';
+    }
+    
+    logToConsole(message, type = 'info') {
+        const console = document.getElementById('adminConsole');
+        const line = document.createElement('div');
+        line.className = `console-line ${type}`;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        line.textContent = `[${timestamp}] ${message}`;
+        
+        console.appendChild(line);
+        console.scrollTop = console.scrollHeight;
+    }
+    
+    showDebugInfo() {
+        // Create debug overlay if it doesn't exist
+        if (!document.getElementById('debugInfo')) {
+            const debugDiv = document.createElement('div');
+            debugDiv.id = 'debugInfo';
+            debugDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: rgba(0, 0, 0, 0.8);
+                color: #00ff00;
+                padding: 10px;
+                font-family: monospace;
+                font-size: 12px;
+                z-index: 999;
+                border-radius: 5px;
+                min-width: 200px;
+            `;
+            document.body.appendChild(debugDiv);
+        }
+        
+        this.updateDebugInfo();
+    }
+    
+    hideDebugInfo() {
+        const debugDiv = document.getElementById('debugInfo');
+        if (debugDiv) {
+            debugDiv.remove();
+        }
+    }
+    
+    updateDebugInfo() {
+        if (!this.debugMode) return;
+        
+        const debugDiv = document.getElementById('debugInfo');
+        if (!debugDiv) return;
+        
+        const info = [];
+        info.push(`FPS: ${Math.round(1000 / 16)}`); // Approximate
+        info.push(`Players: ${this.players.size}`);
+        info.push(`Socket: ${this.socket && this.socket.connected ? 'Connected' : 'Disconnected'}`);
+        info.push(`Room: ${this.currentRoom || 'None'}`);
+        info.push(`QTE: ${this.qteActive ? 'Active' : 'Inactive'}`);
+        
+        if (this.gameState) {
+            info.push(`Time: ${this.gameState.timeLeft || 0}s`);
+            info.push(`Tags: ${this.gameState.tagCount || 0}`);
+        }
+        
+        debugDiv.innerHTML = info.join('<br>');
+        
+        // Update every second
+        if (this.debugMode) {
+            setTimeout(() => this.updateDebugInfo(), 1000);
+        }
+    }
+    
+    broadcastMessage() {
+        const message = document.getElementById('broadcastInput').value.trim();
+        const messageType = document.getElementById('messageType').value;
+        
+        if (!message) {
+            this.logToConsole('Please enter a message to broadcast', 'error');
+            return;
+        }
+        
+        this.logToConsole(`Broadcasting message: "${message}" (${messageType})`, 'info');
+        
+        // Send to server if connected
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('adminCommand', { 
+                type: 'broadcast', 
+                message: message,
+                messageType: messageType
+            });
+        }
+        
+        // Clear input
+        document.getElementById('broadcastInput').value = '';
+        
+        // Show local notification for testing
+        this.showSiteMessage(message, messageType, 'Admin');
+    }
+    
+    setMessageOfDay() {
+        const message = document.getElementById('broadcastInput').value.trim();
+        const messageType = document.getElementById('messageType').value;
+        
+        if (!message) {
+            this.logToConsole('Please enter a message to set as MOTD', 'error');
+            return;
+        }
+        
+        this.logToConsole(`Setting MOTD: "${message}" (${messageType})`, 'info');
+        
+        // Send to server if connected
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('adminCommand', { 
+                type: 'setMotd', 
+                message: message,
+                messageType: messageType
+            });
+        }
+        
+        // Clear input
+        document.getElementById('broadcastInput').value = '';
+    }
+    
+    showSiteMessage(message, type = 'info', sender = 'System') {
+        // Create message overlay
+        const messageOverlay = document.createElement('div');
+        messageOverlay.className = `site-message ${type}`;
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'site-message-content';
+        
+        const messageHeader = document.createElement('div');
+        messageHeader.className = 'site-message-header';
+        messageHeader.innerHTML = `
+            <span class="message-icon">${this.getMessageIcon(type)}</span>
+            <span class="message-sender">${sender}</span>
+            <button class="message-close">×</button>
+        `;
+        
+        const messageText = document.createElement('div');
+        messageText.className = 'site-message-text';
+        messageText.textContent = message;
+        
+        messageContent.appendChild(messageHeader);
+        messageContent.appendChild(messageText);
+        messageOverlay.appendChild(messageContent);
+        
+        // Add to page
+        document.body.appendChild(messageOverlay);
+        
+        // Close button functionality
+        messageHeader.querySelector('.message-close').addEventListener('click', () => {
+            messageOverlay.remove();
+        });
+        
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            if (messageOverlay.parentNode) {
+                messageOverlay.remove();
+            }
+        }, 8000);
+        
+        // Animate in
+        setTimeout(() => {
+            messageOverlay.classList.add('show');
+        }, 100);
+    }
+    
+    getMessageIcon(type) {
+        switch (type) {
+            case 'info': return '🔷';
+            case 'warning': return '⚠️';
+            case 'error': return '🚨';
+            case 'success': return '📢';
+            default: return '💬';
+        }
     }
 }
     
