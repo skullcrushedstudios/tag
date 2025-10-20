@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tag Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>Tag Game</h1>
+            <div class="score-board">
+                <div class="score">Score: <span id="score">0</span></div>
+                <div class="timer">Time: <span id="timer">60</span>s</div>
+            </div>
+        </div>
+        <div class="game-area" id="gameArea">
+            <div class="player" id="player"></div>
+            <div class="target" id="target"></div>
+        </div>
+        <div class="controls">
+            <button id="startBtn">Start Game</button>
+            <button id="restartBtn" style="display: none;">Restart</button>
+        </div>
+        <div class="instructions">
+            <p>Use WASD or Arrow Keys to move your blue square and catch the red target!</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
