@@ -594,6 +594,9 @@ class MultiplayerTagGame {
         this.adminPanelOpen = false;
         this.debugMode = false;
         this.bannedPlayers = new Set();
+        this.debugUpdateTimer = null;
+        this.activeMessages = new Set();
+        this.lastBroadcastTime = 0;
         
         this.init();
         this.startMovementLoop();
@@ -1347,7 +1350,9 @@ class MultiplayerTagGame {
     }
     
     updateTimer(timeLeft) {
-        this.timerElement.textContent = timeLeft;
+        // Prevent negative timer values and overflow
+        const safeTime = Math.max(0, Math.min(999, Math.floor(timeLeft || 0)));
+        this.timerElement.textContent = safeTime;
     }
     
     showTagFeedback() {
@@ -1908,6 +1913,12 @@ class MultiplayerTagGame {
     }
     
     hideDebugInfo() {
+        // Clear debug timer
+        if (this.debugUpdateTimer) {
+            clearTimeout(this.debugUpdateTimer);
+            this.debugUpdateTimer = null;
+        }
+        
         const debugDiv = document.getElementById('debugInfo');
         if (debugDiv) {
             debugDiv.remove();
@@ -1915,7 +1926,13 @@ class MultiplayerTagGame {
     }
     
     updateDebugInfo() {
-        if (!this.debugMode) return;
+        if (!this.debugMode) {
+            if (this.debugUpdateTimer) {
+                clearTimeout(this.debugUpdateTimer);
+                this.debugUpdateTimer = null;
+            }
+            return;
+        }
         
         const debugDiv = document.getElementById('debugInfo');
         if (!debugDiv) return;
@@ -1934,18 +1951,35 @@ class MultiplayerTagGame {
         
         debugDiv.innerHTML = info.join('<br>');
         
-        // Update every second
+        // Clear existing timer and set new one
+        if (this.debugUpdateTimer) {
+            clearTimeout(this.debugUpdateTimer);
+        }
+        
         if (this.debugMode) {
-            setTimeout(() => this.updateDebugInfo(), 1000);
+            this.debugUpdateTimer = setTimeout(() => this.updateDebugInfo(), 1000);
         }
     }
     
     broadcastMessage() {
+        // Throttle broadcasts to prevent spam
+        const now = Date.now();
+        if (now - this.lastBroadcastTime < 2000) {
+            this.logToConsole('Please wait 2 seconds between broadcasts', 'warning');
+            return;
+        }
+        this.lastBroadcastTime = now;
+        
         const message = document.getElementById('broadcastInput').value.trim();
         const messageType = document.getElementById('messageType').value;
         
         if (!message) {
             this.logToConsole('Please enter a message to broadcast', 'error');
+            return;
+        }
+        
+        if (message.length > 200) {
+            this.logToConsole('Message too long (max 200 characters)', 'error');
             return;
         }
         
@@ -1992,9 +2026,24 @@ class MultiplayerTagGame {
     }
     
     showSiteMessage(message, type = 'info', sender = 'System') {
+        // Prevent duplicate messages
+        const messageKey = `${message}-${type}-${sender}`;
+        if (this.activeMessages.has(messageKey)) {
+            return;
+        }
+        this.activeMessages.add(messageKey);
+        
+        // Limit max messages (prevent crash)
+        const existingMessages = document.querySelectorAll('.site-message');
+        if (existingMessages.length >= 3) {
+            // Remove oldest message
+            existingMessages[0].remove();
+        }
+        
         // Create message overlay
         const messageOverlay = document.createElement('div');
         messageOverlay.className = `site-message ${type}`;
+        messageOverlay.dataset.messageKey = messageKey;
         
         const messageContent = document.createElement('div');
         messageContent.className = 'site-message-content';
@@ -2015,24 +2064,28 @@ class MultiplayerTagGame {
         messageContent.appendChild(messageText);
         messageOverlay.appendChild(messageContent);
         
+        // Cleanup function
+        const cleanup = () => {
+            if (messageOverlay.parentNode) {
+                messageOverlay.remove();
+            }
+            this.activeMessages.delete(messageKey);
+        };
+        
         // Add to page
         document.body.appendChild(messageOverlay);
         
         // Close button functionality
-        messageHeader.querySelector('.message-close').addEventListener('click', () => {
-            messageOverlay.remove();
-        });
+        messageHeader.querySelector('.message-close').addEventListener('click', cleanup);
         
         // Auto-remove after 8 seconds
-        setTimeout(() => {
-            if (messageOverlay.parentNode) {
-                messageOverlay.remove();
-            }
-        }, 8000);
+        setTimeout(cleanup, 8000);
         
         // Animate in
         setTimeout(() => {
-            messageOverlay.classList.add('show');
+            if (messageOverlay.parentNode) {
+                messageOverlay.classList.add('show');
+            }
         }, 100);
     }
     
