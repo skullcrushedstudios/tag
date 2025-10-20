@@ -39,19 +39,38 @@ class MultiplayerTagGame {
         this.playerNameInput = document.getElementById('playerName');
         this.roomIdInput = document.getElementById('roomId');
         
+        // Login system
+        this.isLoggedIn = false;
+        this.currentUser = null;
+        this.loginAttempts = 0;
+        this.maxLoginAttempts = 3;
+        this.users = new Map([
+            ['admin', { password: 'admin123', level: 'admin' }],
+            ['user', { password: 'password', level: 'user' }],
+            ['test', { password: 'test123', level: 'user' }]
+        ]);
+        
         this.init();
     }
     
     init() {
         this.setupEventListeners();
-        this.showModeSelection();
+        this.showStudioIntro();
+        this.startParticleSystem();
     }
-    
     selectOnlineMode() {
+        // Check if user is logged in
+        if (!this.isLoggedIn) {
+            alert('Please log in first to access online multiplayer!');
+            this.showLoginScreen();
+            return;
+        }
+        
         document.querySelector('.game-mode-selection').style.display = 'none';
         document.getElementById('onlineForm').style.display = 'flex';
-        this.connectionStatus.textContent = 'Connecting to server...';
-        this.connectToServer();
+        this.connectionStatus.textContent = `Logged in as: ${this.currentUser.username}`;
+        this.connectionStatus.className = 'connection-status connected';
+        this.shouldConnect = true;
     }
     
     selectOfflineMode() {
@@ -70,12 +89,41 @@ class MultiplayerTagGame {
         document.getElementById('onlineForm').style.display = 'none';
         document.getElementById('offlineForm').style.display = 'none';
         
+        // Reset connection state when returning to main menu
+        this.shouldConnect = false;
+        
+        // Update user status display
+        this.updateUserStatus();
+        
         // Update online player count (if connected)
         if (this.socket && this.socket.connected) {
             // You could emit a request for player count here
             document.getElementById('playersOnline').textContent = '🔗';
         } else {
             document.getElementById('playersOnline').textContent = '0';
+        }
+    }
+    
+    updateUserStatus() {
+        const statusText = document.getElementById('statusText');
+        const statusBtn = document.getElementById('statusBtn');
+        
+        if (this.isLoggedIn) {
+            statusText.textContent = `Welcome, ${this.currentUser.username}!`;
+            statusBtn.textContent = 'LOGOUT';
+            statusBtn.className = 'status-btn logout';
+        } else {
+            statusText.textContent = 'Not logged in';
+            statusBtn.textContent = 'LOGIN';
+            statusBtn.className = 'status-btn';
+        }
+    }
+    
+    handleStatusClick() {
+        if (this.isLoggedIn) {
+            this.logout();
+        } else {
+            this.showLoginScreen();
         }
     }
     
@@ -86,6 +134,10 @@ class MultiplayerTagGame {
         document.querySelector('.game-mode-selection').style.display = 'flex';
         document.getElementById('onlineForm').style.display = 'none';
         document.getElementById('offlineForm').style.display = 'none';
+        
+        // Reset connection state when returning to mode selection
+        this.shouldConnect = false;
+        
         this.connectionStatus.textContent = 'Choose a game mode to start';
         this.connectionStatus.className = 'connection-status';
     }
@@ -101,27 +153,264 @@ class MultiplayerTagGame {
     }
     
     hideAllScreens() {
+        document.getElementById('studioIntro').style.display = 'none';
         document.getElementById('mainMenu').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('roomSelection').style.display = 'none';
         document.getElementById('howToPlay').style.display = 'none';
         // Game screen is handled separately
     }
     
+    handlePlayClick() {
+        if (this.isLoggedIn) {
+            this.showModeSelection();
+        } else {
+            this.showLoginScreen();
+        }
+    }
+    
+    showLoginScreen() {
+        this.hideAllScreens();
+        document.getElementById('loginScreen').style.display = 'block';
+        
+        // Clear previous input
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('loginStatus').textContent = 'Please enter your credentials';
+        document.getElementById('loginStatus').className = 'login-status';
+        
+        // Focus username field
+        setTimeout(() => {
+            document.getElementById('username').focus();
+        }, 100);
+    }
+    
+    handleLogin() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const loginStatus = document.getElementById('loginStatus');
+        const loginBtn = document.getElementById('loginBtn');
+        
+        if (!username || !password) {
+            this.showLoginError('Please enter both username and password');
+            return;
+        }
+        
+        // Add loading state
+        loginBtn.classList.add('loading');
+        loginStatus.textContent = 'Authenticating...';
+        loginStatus.className = 'login-status';
+        
+        // Simulate network delay
+        setTimeout(() => {
+            if (this.authenticateUser(username, password)) {
+                this.loginSuccess(username);
+            } else {
+                this.loginFailure();
+            }
+            loginBtn.classList.remove('loading');
+        }, 1000);
+    }
+    
+    handleRegister() {
+        // Simple registration (in real app, this would be more complex)
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!username || !password) {
+            this.showLoginError('Please enter both username and password');
+            return;
+        }
+        
+        if (username.length < 3) {
+            this.showLoginError('Username must be at least 3 characters');
+            return;
+        }
+        
+        if (password.length < 6) {
+            this.showLoginError('Password must be at least 6 characters');
+            return;
+        }
+        
+        if (this.users.has(username.toLowerCase())) {
+            this.showLoginError('Username already exists');
+            return;
+        }
+        
+        // Add new user
+        this.users.set(username.toLowerCase(), {
+            password: password,
+            level: 'user'
+        });
+        
+        this.showLoginSuccess('Account created successfully! Logging you in...');
+        
+        setTimeout(() => {
+            this.loginSuccess(username);
+        }, 1500);
+    }
+    
+    handleGuestLogin() {
+        const guestName = 'Guest_' + Math.random().toString(36).substr(2, 5);
+        this.loginSuccess(guestName, true);
+    }
+    
+    authenticateUser(username, password) {
+        const user = this.users.get(username.toLowerCase());
+        return user && user.password === password;
+    }
+    
+    loginSuccess(username, isGuest = false) {
+        this.isLoggedIn = true;
+        this.currentUser = {
+            username: username,
+            isGuest: isGuest,
+            level: isGuest ? 'guest' : this.users.get(username.toLowerCase()).level
+        };
+        
+        this.showLoginSuccess(`Welcome, ${username}!`);
+        
+        setTimeout(() => {
+            this.showModeSelection();
+        }, 1500);
+    }
+    
+    loginFailure() {
+        this.loginAttempts++;
+        
+        if (this.loginAttempts >= this.maxLoginAttempts) {
+            this.showLoginError('Too many failed attempts. Try again later.');
+            document.getElementById('loginBtn').disabled = true;
+            
+            setTimeout(() => {
+                document.getElementById('loginBtn').disabled = false;
+                this.loginAttempts = 0;
+            }, 30000); // 30 second lockout
+        } else {
+            const remaining = this.maxLoginAttempts - this.loginAttempts;
+            this.showLoginError(`Invalid credentials. ${remaining} attempt(s) remaining.`);
+        }
+        
+        // Clear password field
+        document.getElementById('password').value = '';
+    }
+    
+    showLoginSuccess(message) {
+        const loginStatus = document.getElementById('loginStatus');
+        loginStatus.textContent = message;
+        loginStatus.className = 'login-status success';
+    }
+    
+    showLoginError(message) {
+        const loginStatus = document.getElementById('loginStatus');
+        loginStatus.textContent = message;
+        loginStatus.className = 'login-status error';
+    }
+    
+    logout() {
+        this.isLoggedIn = false;
+        this.currentUser = null;
+        this.loginAttempts = 0;
+        
+        // Clear connection state
+        this.shouldConnect = false;
+        
+        // Disconnect from server
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+        }
+        
+        // Reset game state
+        this.playerId = null;
+        this.currentRoom = null;
+        this.gameState = null;
+        this.players.clear();
+        
+        this.showMainMenu();
+    }
+    
+    showStudioIntro() {
+        this.hideAllScreens();
+        document.getElementById('studioIntro').style.display = 'block';
+        
+        // Auto-advance to main menu after animation completes
+        setTimeout(() => {
+            if (document.getElementById('studioIntro').style.display !== 'none') {
+                this.showMainMenu();
+            }
+        }, 5000); // 5 seconds total animation time
+    }
+    
+    handleIntroSkip(e) {
+        // Only skip if we're currently showing the studio intro
+        if (document.getElementById('studioIntro').style.display !== 'none') {
+            // Don't skip on game controls during actual gameplay
+            if (this.gameState && this.gameState.isRunning && this.qteActive) {
+                return;
+            }
+            
+            e.preventDefault();
+            this.showMainMenu();
+        }
+    }
+    
     connectToServer() {
-        this.socket = io();
+        // Don't create multiple connections or connect during intro
+        if ((this.socket && this.socket.connected) || !this.shouldConnect) {
+            return;
+        }
+        
+        // Disconnect existing socket first
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+        }
+        
+        this.socket = io({
+            timeout: 5000,
+            forceNew: true,
+            autoConnect: false  // Prevent automatic reconnection
+        });
+        
+        // Manually connect
+        this.socket.connect();
         
         this.socket.on('connect', () => {
             console.log('Connected to server');
-            this.connectionStatus.textContent = 'Connected! Enter your details to join a room.';
-            this.connectionStatus.className = 'connection-status connected';
+        this.connectionStatus.textContent = 'Connected! Enter your details to join a room.';
+        this.connectionStatus.className = 'connection-status connected';
+        if (this.connectionIndicator) {
             this.connectionIndicator.className = 'connection-indicator connected';
+        }
+    });
+    
+    this.socket.on('disconnect', (reason) => {
+            console.log('Disconnected from server:', reason);
+            
+            // Only show error if we're still supposed to be connected
+            if (this.shouldConnect) {
+                this.connectionStatus.textContent = 'Disconnected from server';
+                this.connectionStatus.className = 'connection-status error';
+                if (this.connectionIndicator) {
+                    this.connectionIndicator.className = 'connection-indicator disconnected';
+                }
+            }
+            
+            // Clear socket reference to prevent stale connections
+            if (!this.shouldConnect) {
+                this.socket = null;
+            }
         });
         
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-            this.connectionStatus.textContent = 'Disconnected from server';
-            this.connectionStatus.className = 'connection-status error';
-            this.connectionIndicator.className = 'connection-indicator disconnected';
+        this.socket.on('connect_error', (error) => {
+            console.log('Connection error:', error);
+            
+            // Only show error if we're still trying to connect
+            if (this.shouldConnect) {
+                this.connectionStatus.textContent = 'Failed to connect to server';
+                this.connectionStatus.className = 'connection-status error';
+            }
         });
         
         this.socket.on('roomJoined', (data) => {
@@ -192,6 +481,10 @@ class MultiplayerTagGame {
     }
     
     setupEventListeners() {
+        // Skip intro on any key press or click
+        document.addEventListener('keydown', (e) => this.handleIntroSkip(e));
+        document.addEventListener('click', (e) => this.handleIntroSkip(e));
+        
         // Mode selection
         document.getElementById('onlineMode').addEventListener('click', () => this.selectOnlineMode());
         document.getElementById('offlineMode').addEventListener('click', () => this.selectOfflineMode());
@@ -205,9 +498,26 @@ class MultiplayerTagGame {
         document.getElementById('startOfflineBtn').addEventListener('click', () => this.startOfflineGame());
         
         // Main menu buttons
-        document.getElementById('playBtn').addEventListener('click', () => this.showModeSelection());
+        document.getElementById('playBtn').addEventListener('click', () => this.handlePlayClick());
         document.getElementById('howToPlayBtn').addEventListener('click', () => this.showHowToPlay());
         document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
+        
+        // Login buttons
+        document.getElementById('loginBtn').addEventListener('click', () => this.handleLogin());
+        document.getElementById('registerBtn').addEventListener('click', () => this.handleRegister());
+        document.getElementById('guestLoginBtn').addEventListener('click', () => this.handleGuestLogin());
+        document.getElementById('backToMainFromLogin').addEventListener('click', () => this.showMainMenu());
+        
+        // Enter key support for login
+        document.getElementById('username').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.handleLogin();
+        });
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.handleLogin();
+        });
+        
+        // Status button
+        document.getElementById('statusBtn').addEventListener('click', () => this.handleStatusClick());
         
         // Navigation buttons
         document.getElementById('backToMainBtn').addEventListener('click', () => this.showMainMenu());
@@ -239,6 +549,9 @@ class MultiplayerTagGame {
         this.isOfflineMode = false;
         this.offlineGameState = null;
         
+        // Connection management
+        this.shouldConnect = false;
+        
         this.init();
         this.startMovementLoop();
     }
@@ -252,7 +565,30 @@ class MultiplayerTagGame {
             return;
         }
         
-        this.socket.emit('joinRoom', { roomId, playerName });
+        // Connect to server first, then join room
+        if (!this.socket || !this.socket.connected) {
+            this.connectionStatus.textContent = 'Connecting to server...';
+            this.connectionStatus.className = 'connection-status';
+            this.connectToServer();
+            
+            // Wait for connection before joining
+            const checkConnection = () => {
+                if (this.socket && this.socket.connected) {
+        // Use logged in username if not provided
+        const actualPlayerName = playerName || this.currentUser?.username || 'Anonymous';
+        this.socket.emit('joinRoom', { 
+            roomId, 
+            playerName: actualPlayerName,
+            userLevel: this.currentUser?.level || 'guest'
+        });
+                } else {
+                    setTimeout(checkConnection, 100);
+                }
+            };
+            setTimeout(checkConnection, 100);
+        } else {
+            this.socket.emit('joinRoom', { roomId, playerName });
+        }
     }
     
     leaveRoom() {
@@ -261,6 +597,7 @@ class MultiplayerTagGame {
         } else {
             if (this.socket) {
                 this.socket.disconnect();
+                this.socket = null;
             }
             
             // Reset game state
@@ -1120,8 +1457,17 @@ class MultiplayerTagGame {
     
     startQTETimer() {
         const timerElement = document.getElementById('qte-timer');
-        const updateTimer = () => {
-            if (!this.qteActive) return;
+        
+        // Clear any existing timer
+        if (this.qteTimerInterval) {
+            clearInterval(this.qteTimerInterval);
+        }
+        
+        this.qteTimerInterval = setInterval(() => {
+            if (!this.qteActive || !timerElement) {
+                clearInterval(this.qteTimerInterval);
+                return;
+            }
             
             const elapsed = Date.now() - this.qteData.startTime;
             const remaining = Math.max(0, this.qteData.duration - elapsed);
@@ -1133,12 +1479,10 @@ class MultiplayerTagGame {
                 timerElement.classList.add('urgent');
             }
             
-            if (remaining > 0) {
-                requestAnimationFrame(updateTimer);
+            if (remaining <= 0) {
+                clearInterval(this.qteTimerInterval);
             }
-        };
-        
-        updateTimer();
+        }, 100); // Update every 100ms instead of every frame
     }
     
     handleQTEInput(key) {
@@ -1185,6 +1529,12 @@ class MultiplayerTagGame {
     
     endQTE(data) {
         this.qteActive = false;
+        
+        // Clear timer interval
+        if (this.qteTimerInterval) {
+            clearInterval(this.qteTimerInterval);
+            this.qteTimerInterval = null;
+        }
         
         // Remove QTE overlay
         if (this.qteOverlay) {

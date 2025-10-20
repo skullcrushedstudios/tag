@@ -9,8 +9,33 @@
 </head>
 <body>
     <div class="game-container">
+        <!-- Studio Intro Animation -->
+        <div id="studioIntro" class="screen studio-intro">
+            <div class="intro-content">
+                <div class="skull-container">
+                    <div class="skull" id="skull">
+                        <div class="skull-top">💀</div>
+                        <div class="crusher" id="crusher">🔨</div>
+                        <div class="crack-lines" id="crackLines"></div>
+                        <div class="skull-fragments" id="skullFragments">
+                            <div class="fragment">💀</div>
+                            <div class="fragment">💀</div>
+                            <div class="fragment">💀</div>
+                            <div class="fragment">💀</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="studio-name" id="studioName">
+                    <span class="studio-word">SKULL</span>
+                    <span class="studio-word">CRUSHED</span>
+                    <span class="studio-word">STUDIOS</span>
+                </div>
+                <div class="skip-hint" id="skipHint">Press any key to skip</div>
+            </div>
+        </div>
+        
         <!-- Main Menu Screen -->
-        <div id="mainMenu" class="screen main-menu">
+        <div id="mainMenu" class="screen main-menu" style="display: none;">
             <div class="particles-container" id="particlesContainer"></div>
             <div class="menu-content">
                 <div class="logo-container">
@@ -46,6 +71,13 @@
                 </div>
                 
                 <div class="menu-footer">
+                    <div class="user-status" id="userStatus">
+                        <div class="status-info">
+                            <span class="status-text" id="statusText">Not logged in</span>
+                            <button class="status-btn" id="statusBtn">LOGIN</button>
+                        </div>
+                    </div>
+                    
                     <div class="stats-display">
                         <div class="stat-item">
                             <span class="stat-value" id="playersOnline">0</span>
@@ -57,6 +89,56 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Login Screen -->
+        <div id="loginScreen" class="screen" style="display: none;">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1>🔐 Player Login</h1>
+                    <p>Sign in to access multiplayer features</p>
+                </div>
+                
+                <div class="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" placeholder="Enter your username" maxlength="20" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+                    
+                    <div class="login-buttons">
+                        <button class="login-btn primary" id="loginBtn">
+                            <span class="btn-icon">🔓</span>
+                            <span class="btn-text">LOGIN</span>
+                            <div class="btn-glow"></div>
+                        </button>
+                        
+                        <button class="login-btn secondary" id="registerBtn">
+                            <span class="btn-icon">📝</span>
+                            <span class="btn-text">REGISTER</span>
+                            <div class="btn-glow"></div>
+                        </button>
+                    </div>
+                    
+                    <div class="login-divider">
+                        <span>OR</span>
+                    </div>
+                    
+                    <button class="login-btn guest" id="guestLoginBtn">
+                        <span class="btn-icon">👤</span>
+                        <span class="btn-text">CONTINUE AS GUEST</span>
+                        <div class="btn-glow"></div>
+                    </button>
+                </div>
+                
+                <div class="login-status" id="loginStatus">Please enter your credentials</div>
+                
+                <div class="back-button" id="backToMainFromLogin">← Main Menu</div>
             </div>
         </div>
         
