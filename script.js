@@ -424,6 +424,16 @@ class MultiplayerTagGame {
         
         this.socket.on('playerJoined', (data) => {
             this.updateGameState(data.gameState);
+            
+            // Ensure all players are visible
+            if (data.allPlayers) {
+                data.allPlayers.forEach(player => {
+                    if (!this.players.has(player.id)) {
+                        // Create missing player element
+                        this.createPlayerElement(player);
+                    }
+                });
+            }
         });
         
         this.socket.on('playerLeft', (data) => {
@@ -441,12 +451,35 @@ class MultiplayerTagGame {
         });
         
         this.socket.on('playerMoved', (data) => {
-            // Only update other players' positions, not our own (we handle ours locally)
-            if (data.playerId !== this.playerId) {
-                const playerElement = this.players.get(data.playerId);
-                if (playerElement) {
-                    playerElement.style.left = (data.position.x - this.playerSize / 2) + 'px';
-                    playerElement.style.top = (data.position.y - this.playerSize / 2) + 'px';
+            // Update all players' positions if allPlayers data is provided
+            if (data.allPlayers) {
+                data.allPlayers.forEach(player => {
+                    const playerElement = this.players.get(player.id);
+                    if (playerElement) {
+                        // Don't override local player position prediction
+                        if (player.id !== this.playerId) {
+                            playerElement.style.left = (player.x - this.playerSize / 2) + 'px';
+                            playerElement.style.top = (player.y - this.playerSize / 2) + 'px';
+                        }
+                        
+                        // Update player status classes
+                        playerElement.className = `player ${player.id === this.players.get(player.id)?.id ? 'player1' : 'player2'}`;
+                        if (player.isIt) {
+                            playerElement.classList.add('it');
+                        }
+                        if (player.slowed) {
+                            playerElement.classList.add('slowed');
+                        }
+                    }
+                });
+            } else {
+                // Fallback to old method for backward compatibility
+                if (data.playerId !== this.playerId) {
+                    const playerElement = this.players.get(data.playerId);
+                    if (playerElement) {
+                        playerElement.style.left = (data.position.x - this.playerSize / 2) + 'px';
+                        playerElement.style.top = (data.position.y - this.playerSize / 2) + 'px';
+                    }
                 }
             }
         });
@@ -1315,6 +1348,39 @@ class MultiplayerTagGame {
             playerInfo.textContent = `${player.name}${player.isIt ? ' (IT!)' : ''}`;
             this.playersListElement.appendChild(playerInfo);
         });
+    }
+    
+    createPlayerElement(player) {
+        // Don't create duplicate elements
+        if (this.players.has(player.id)) {
+            return this.players.get(player.id);
+        }
+        
+        const playerElement = document.createElement('div');
+        const playerIndex = Array.from(this.players.keys()).length;
+        playerElement.className = `player ${playerIndex === 0 ? 'player1' : 'player2'}`;
+        playerElement.id = player.id;
+        
+        if (player.isIt) {
+            playerElement.classList.add('it');
+        }
+        
+        if (player.slowed) {
+            playerElement.classList.add('slowed');
+        }
+        
+        // Initialize local position for current player
+        if (player.id === this.playerId) {
+            this.localPlayerPos = { x: player.x, y: player.y };
+        }
+        
+        playerElement.style.left = (player.x - this.playerSize / 2) + 'px';
+        playerElement.style.top = (player.y - this.playerSize / 2) + 'px';
+        
+        this.gameArea.appendChild(playerElement);
+        this.players.set(player.id, playerElement);
+        
+        return playerElement;
     }
     
     updatePlayerElements(players) {

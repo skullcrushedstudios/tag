@@ -348,10 +348,11 @@ io.on('connection', (socket) => {
             gameState: game.getGameState()
         });
 
-        // Emit to all players in room
+        // Emit to all players in room with complete game state
         io.to(roomId).emit('playerJoined', {
             player: player,
-            gameState: game.getGameState()
+            gameState: game.getGameState(),
+            allPlayers: Array.from(game.players.values())
         });
 
         console.log(`Player ${playerName} joined room ${roomId}`);
@@ -373,9 +374,12 @@ io.on('connection', (socket) => {
             const game = games.get(playerData.roomId);
             if (game) {
                 game.updatePlayerPosition(socket.id, position);
-                socket.to(playerData.roomId).emit('playerMoved', {
+                
+                // Broadcast updated positions to ALL players in room (including sender)
+                io.to(playerData.roomId).emit('playerMoved', {
                     playerId: socket.id,
-                    position: position
+                    position: position,
+                    allPlayers: Array.from(game.players.values())
                 });
             }
         }
