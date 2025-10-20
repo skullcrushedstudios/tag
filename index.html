@@ -3,28 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tag Game</title>
+    <title>Multiplayer Tag Game</title>
     <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <div class="game-container">
-        <div class="game-header">
-            <h1>Tag Game</h1>
-            <div class="score-board">
-                <div class="score">Score: <span id="score">0</span></div>
-                <div class="timer">Time: <span id="timer">60</span>s</div>
+        <!-- Main Menu Screen -->
+        <div id="mainMenu" class="screen main-menu">
+            <div class="particles-container" id="particlesContainer"></div>
+            <div class="menu-content">
+                <div class="logo-container">
+                    <h1 class="game-title">
+                        <span class="title-word">T</span>
+                        <span class="title-word">A</span>
+                        <span class="title-word">G</span>
+                        <span class="title-divider">•</span>
+                        <span class="title-word">G</span>
+                        <span class="title-word">A</span>
+                        <span class="title-word">M</span>
+                        <span class="title-word">E</span>
+                    </h1>
+                    <p class="game-subtitle">The Ultimate Chase Experience</p>
+                </div>
+                
+                <div class="menu-buttons">
+                    <button class="menu-btn primary" id="playBtn">
+                        <span class="btn-icon">▶</span>
+                        <span class="btn-text">PLAY</span>
+                        <div class="btn-glow"></div>
+                    </button>
+                    <button class="menu-btn secondary" id="howToPlayBtn">
+                        <span class="btn-icon">?</span>
+                        <span class="btn-text">HOW TO PLAY</span>
+                        <div class="btn-glow"></div>
+                    </button>
+                    <button class="menu-btn secondary" id="settingsBtn">
+                        <span class="btn-icon">⚙</span>
+                        <span class="btn-text">SETTINGS</span>
+                        <div class="btn-glow"></div>
+                    </button>
+                </div>
+                
+                <div class="menu-footer">
+                    <div class="stats-display">
+                        <div class="stat-item">
+                            <span class="stat-value" id="playersOnline">0</span>
+                            <span class="stat-label">Players Online</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">∞</span>
+                            <span class="stat-label">Fun Level</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="game-area" id="gameArea">
-            <div class="player" id="player"></div>
-            <div class="target" id="target"></div>
+        
+        <!-- Room Selection Screen -->
+        <div id="roomSelection" class="screen" style="display: none;">
+            <div class="back-button" id="backToMainBtn">← Main Menu</div>
+            <h1>Choose Game Mode</h1>
+            
+            <!-- Game Mode Selection -->
+            <div class="game-mode-selection">
+                <div class="mode-option" id="onlineMode">
+                    <div class="mode-icon">🌐</div>
+                    <h3>Online Multiplayer</h3>
+                    <p>Play with friends over the internet</p>
+                    <div class="mode-features">
+                        <span class="feature">• Real-time multiplayer</span>
+                        <span class="feature">• QTE fight back system</span>
+                        <span class="feature">• Room-based games</span>
+                    </div>
+                </div>
+                <div class="mode-option" id="offlineMode">
+                    <div class="mode-icon">🏠</div>
+                    <h3>Local Offline</h3>
+                    <p>2 players on same keyboard</p>
+                    <div class="mode-features">
+                        <span class="feature">• Couch co-op</span>
+                        <span class="feature">• No internet needed</span>
+                        <span class="feature">• Split controls</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Online Mode Form -->
+            <div id="onlineForm" class="join-form" style="display: none;">
+                <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+                <input type="text" id="roomId" placeholder="Room ID (e.g., room1)" maxlength="20">
+                <button id="joinRoomBtn">Join Room</button>
+                <button id="backToModeBtn" class="secondary-btn">← Back</button>
+            </div>
+            
+            <!-- Offline Mode Form -->
+            <div id="offlineForm" class="join-form" style="display: none;">
+                <input type="text" id="player1Name" placeholder="Player 1 Name (Blue)" maxlength="20">
+                <input type="text" id="player2Name" placeholder="Player 2 Name (Green)" maxlength="20">
+                <button id="startOfflineBtn">Start Offline Game</button>
+                <button id="backToModeBtn2" class="secondary-btn">← Back</button>
+            </div>
+            
+            <div class="connection-status" id="connectionStatus">Choose a game mode to start</div>
         </div>
-        <div class="controls">
-            <button id="startBtn">Start Game</button>
-            <button id="restartBtn" style="display: none;">Restart</button>
+        
+        <!-- How to Play Screen -->
+        <div id="howToPlay" class="screen" style="display: none;">
+            <div class="back-button" id="backToMainBtn2">← Main Menu</div>
+            <div class="help-content">
+                <h1>How to Play</h1>
+                
+                <div class="help-section">
+                    <h3>🎯 Objective</h3>
+                    <p>Avoid being "IT" when the 60-second timer runs out!</p>
+                </div>
+                
+                <div class="help-section">
+                    <h3>🕹️ Controls</h3>
+                    <div class="controls-grid">
+                        <div class="control-item">
+                            <kbd>W A S D</kbd>
+                            <span>Player 1 Movement</span>
+                        </div>
+                        <div class="control-item">
+                            <kbd>↑ ↓ ← →</kbd>
+                            <span>Player 2 Movement</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h3>⚔️ QTE Fight Back</h3>
+                    <p>30% chance to trigger Quick Time Events when players collide!</p>
+                    <p>Press the displayed keys faster than your opponent to reverse the tag.</p>
+                    <p>Loser gets pushed back and slowed for 3 seconds.</p>
+                </div>
+                
+                <div class="help-section">
+                    <h3>💡 Tips</h3>
+                    <ul>
+                        <li>Use corners and walls strategically</li>
+                        <li>Practice QTE sequences to improve reaction time</li>
+                        <li>Watch for the slow effect after losing QTEs</li>
+                        <li>Stay alert - anyone can become "IT" instantly!</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div class="instructions">
-            <p>Use WASD or Arrow Keys to move your blue square and catch the red target!</p>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="screen" style="display: none;">
+            <div class="game-header">
+                <h1>Multiplayer Tag Game</h1>
+                <div class="room-info">
+                    <span>Room: <span id="currentRoom"></span></span>
+                    <span class="connection-indicator" id="connectionIndicator">●</span>
+                </div>
+                <div class="players-list" id="playersList"></div>
+                <div class="score-board">
+                    <div class="timer">Time: <span id="timer">60</span>s</div>
+                    <div class="tag-count">Tags: <span id="tagCount">0</span></div>
+                </div>
+            </div>
+            <div class="game-area" id="gameArea">
+                <!-- Players will be dynamically created -->
+            </div>
+            <div class="controls">
+                <button id="startBtn" style="display: none;">Start Game</button>
+                <button id="restartBtn" style="display: none;">Restart Game</button>
+                <button id="leaveRoomBtn">Leave Room</button>
+            </div>
+            <div class="instructions" id="gameInstructions">
+                <p><strong>Controls:</strong> Use WASD keys to move your player</p>
+                <p>The player who is "IT" must tag the other player! Try to avoid being "IT" when time runs out!</p>
+                <p><strong>Waiting for players...</strong> Need 2 players to start the game.</p>
+            </div>
         </div>
     </div>
     <script src="script.js"></script>
