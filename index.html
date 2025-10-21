@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -56,6 +57,11 @@
                     <button class="menu-btn primary" id="playBtn">
                         <span class="btn-icon">▶</span>
                         <span class="btn-text">PLAY</span>
+                        <div class="btn-glow"></div>
+                    </button>
+                    <button class="menu-btn secondary" id="shopBtn">
+                        <span class="btn-icon">🛒</span>
+                        <span class="btn-text">SHOP</span>
                         <div class="btn-glow"></div>
                     </button>
                     <button class="menu-btn secondary" id="howToPlayBtn">
@@ -124,143 +130,39 @@
                             <div class="btn-glow"></div>
                         </button>
                     </div>
-                    
-                    <div class="login-divider">
-                        <span>OR</span>
-                    </div>
-                    
-                    <button class="login-btn guest" id="guestLoginBtn">
-                        <span class="btn-icon">👤</span>
-                        <span class="btn-text">CONTINUE AS GUEST</span>
-                        <div class="btn-glow"></div>
-                    </button>
                 </div>
-                
-                <div class="login-status" id="loginStatus">Please enter your credentials</div>
-                
-                <div class="back-button" id="backToMainFromLogin">← Main Menu</div>
             </div>
         </div>
         
-        <!-- Room Selection Screen -->
-        <div id="roomSelection" class="screen" style="display: none;">
-            <div class="back-button" id="backToMainBtn">← Main Menu</div>
-            <h1>Choose Game Mode</h1>
-            
-            <!-- Game Mode Selection -->
-            <div class="game-mode-selection">
-                <div class="mode-option" id="onlineMode">
-                    <div class="mode-icon">🌐</div>
-                    <h3>Online Multiplayer</h3>
-                    <p>Play with friends over the internet</p>
-                    <div class="mode-features">
-                        <span class="feature">• Real-time multiplayer</span>
-                        <span class="feature">• QTE fight back system</span>
-                        <span class="feature">• Room-based games</span>
+        <!-- Shop Screen -->
+        <div id="shopScreen" class="screen" style="display: none;">
+            <div class="shop-container">
+                <div class="shop-header">
+                    <h1>🛒 Taggerz Shop</h1>
+                    <p>Spend your Taggerz on awesome upgrades!</p>
+                    <div class="taggerz-balance">Taggerz: <span id="shopTaggerz">0</span></div>
+                </div>
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <h3>Purple Color</h3>
+                        <p>Change your player to a vibrant purple!</p>
+                        <p class="cost">Cost: 50 Taggerz</p>
+                        <button class="shop-btn" data-item="color-purple">Buy</button>
+                    </div>
+                    <div class="shop-item">
+                        <h3>Gold Color</h3>
+                        <p>Shine with a luxurious gold player!</p>
+                        <p class="cost">Cost: 50 Taggerz</p>
+                        <button class="shop-btn" data-item="color-gold">Buy</button>
+                    </div>
+                    <div class="shop-item">
+                        <h3>Power-Up Boost</h3>
+                        <p>Extend power-up duration by 2 seconds!</p>
+                        <p class="cost">Cost: 100 Taggerz</p>
+                        <button class="shop-btn" data-item="powerup-boost">Buy</button>
                     </div>
                 </div>
-                <div class="mode-option" id="offlineMode">
-                    <div class="mode-icon">🏠</div>
-                    <h3>Local Offline</h3>
-                    <p>2 players on same keyboard</p>
-                    <div class="mode-features">
-                        <span class="feature">• Couch co-op</span>
-                        <span class="feature">• No internet needed</span>
-                        <span class="feature">• Split controls</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Online Mode Form -->
-            <div id="onlineForm" class="join-form" style="display: none;">
-                <div class="server-options">
-                    <div class="server-option" id="privateServerOption">
-                        <input type="radio" id="privateServer" name="serverType" value="private" checked>
-                        <label for="privateServer">
-                            <span class="server-icon">🏠</span>
-                            <span class="server-title">Private Room</span>
-                            <span class="server-desc">Create or join a specific room</span>
-                        </label>
-                    </div>
-                    <div class="server-option" id="groupServerOption">
-                        <input type="radio" id="groupServer" name="serverType" value="group">
-                        <label for="groupServer">
-                            <span class="server-icon">🌐</span>
-                            <span class="server-title">Group Server</span>
-                            <span class="server-desc">Join the main community server</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div id="privateRoomInputs">
-                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
-                    <input type="text" id="roomId" placeholder="Room ID (e.g., room1)" maxlength="20">
-                </div>
-                
-                <div id="groupServerInputs" style="display: none;">
-                    <input type="text" id="groupPlayerName" placeholder="Enter your name" maxlength="20">
-                    <div class="group-server-info">
-                        <p>🎮 Join the main Tag Game community!</p>
-                        <p>Play with players from around the world</p>
-                    </div>
-                </div>
-                
-                <button id="joinRoomBtn">Join Game</button>
-                <button id="backToModeBtn" class="secondary-btn">← Back</button>
-            </div>
-            
-            <!-- Offline Mode Form -->
-            <div id="offlineForm" class="join-form" style="display: none;">
-                <input type="text" id="player1Name" placeholder="Player 1 Name (Blue)" maxlength="20">
-                <input type="text" id="player2Name" placeholder="Player 2 Name (Green)" maxlength="20">
-                <button id="startOfflineBtn">Start Offline Game</button>
-                <button id="backToModeBtn2" class="secondary-btn">← Back</button>
-            </div>
-            
-            <div class="connection-status" id="connectionStatus">Choose a game mode to start</div>
-        </div>
-        
-        <!-- How to Play Screen -->
-        <div id="howToPlay" class="screen" style="display: none;">
-            <div class="back-button" id="backToMainBtn2">← Main Menu</div>
-            <div class="help-content">
-                <h1>How to Play</h1>
-                
-                <div class="help-section">
-                    <h3>🎯 Objective</h3>
-                    <p>Avoid being "IT" when the 60-second timer runs out!</p>
-                </div>
-                
-                <div class="help-section">
-                    <h3>🕹️ Controls</h3>
-                    <div class="controls-grid">
-                        <div class="control-item">
-                            <kbd>W A S D</kbd>
-                            <span>Player 1 Movement</span>
-                        </div>
-                        <div class="control-item">
-                            <kbd>↑ ↓ ← →</kbd>
-                            <span>Player 2 Movement</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="help-section">
-                    <h3>⚔️ QTE Fight Back</h3>
-                    <p>30% chance to trigger Quick Time Events when players collide!</p>
-                    <p>Press the displayed keys faster than your opponent to reverse the tag.</p>
-                    <p>Loser gets pushed back and slowed for 3 seconds.</p>
-                </div>
-                
-                <div class="help-section">
-                    <h3>💡 Tips</h3>
-                    <ul>
-                        <li>Use corners and walls strategically</li>
-                        <li>Practice QTE sequences to improve reaction time</li>
-                        <li>Watch for the slow effect after losing QTEs</li>
-                        <li>Stay alert - anyone can become "IT" instantly!</li>
-                    </ul>
-                </div>
+                <button class="back-btn">Back to Menu</button>
             </div>
         </div>
 
@@ -276,6 +178,7 @@
                 <div class="score-board">
                     <div class="timer">Time: <span id="timer">60</span>s</div>
                     <div class="tag-count">Tags: <span id="tagCount">0</span></div>
+                    <div class="taggerz">Taggerz: <span id="taggerzCount">0</span></div>
                 </div>
             </div>
             <div class="game-area" id="gameArea">
